@@ -81,18 +81,12 @@ describe("Config", () => {
       expect(errors).toContain("OPENROUTER_API_KEY is required");
     });
 
-    it("should require SOLANA_WALLET_ADDRESS", () => {
-      // Delete the env var to test validation
-      delete process.env.SOLANA_WALLET_ADDRESS;
-
+    it("should require WALLET_ADDRESS", () => {
       const config = getConfig();
-      // Note: If there's a stored wallet from registration, this test may pass
-      // because config falls back to stored.walletAddress
-      // We're testing that an empty string triggers the validation
-      const testConfig = { ...config, solanaWalletAddress: "" };
+      const testConfig = { ...config, walletAddress: "" };
       const errors = validateConfig(testConfig);
 
-      expect(errors).toContain("SOLANA_WALLET_ADDRESS is required");
+      expect(errors).toContain("WALLET_ADDRESS is required");
     });
   });
 });

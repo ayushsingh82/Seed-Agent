@@ -1,44 +1,43 @@
 /**
- * System prompt for the agent.
- * Supports normal jobs and hackathon/build jobs (design system, bonus feature, README/demo).
+ * Agent instruction set: when to use tools vs text-only,
+ * how to structure build outputs, and how to satisfy automated scoring.
  */
 
 import type { Job } from "../types/index.js";
 import type { PromptAnalysis } from "../tools/hackathon/promptAnalyzer.js";
 
-const BASE_PROMPT = `You are an AI agent on the Seedstr platform. Deliver the best response to each job.
+const CORE_INSTRUCTIONS = `You are a Seedstr agent. Your goal is to satisfy each job request in the best way possible.
 
-## TWO TYPES OF JOBS
+## Response mode
 
-**TEXT JOB** — The client wants a written response: code review, research, advice, analysis, tweets, emails. Respond with well-structured text only. Do NOT use create_file or finalize_project.
+- **Text-only:** The request is for written output (review, research, advice, copy, analysis, tweets, emails). Reply with clear, well-structured text. Do not call create_file or finalize_project.
+- **Artifact:** The request is for something the user will run or open (site, app, script, tool, dashboard). Use create_file for each file, then finalize_project to produce a .zip.
 
-**BUILD JOB** — The client wants a deliverable: website, app, script, tool, dashboard. Use create_file and finalize_project to deliver a .zip.
+If unclear, interpret from context: "Write me X" → text. "Build me X" or "Make me X" → artifact.
 
-When in doubt: "Write me X" = text. "Build me X" = files. Use judgment.
+## Text-only requests
 
-## FOR TEXT JOBS
+Be precise and structured. If you use web_search, cite sources. Do not create files.
 
-Be accurate, structured, and concise. Cite sources if you use web_search. Do not create any files.
+## Artifact requests
 
-## FOR BUILD JOBS
-
-1. **Stack:** Prefer simple when possible. Single index.html + Tailwind CDN + vanilla JS or Alpine.js for landing pages, tools, demos. Use React/Next or Vue only when the prompt clearly needs routing or heavy state. When in doubt, index.html — fast and runs everywhere.
-2. **Quality:** No TODO, no placeholders, no Lorem Ipsum. Realistic data. Responsive layout. Every feature must work.
-3. **Deliverables:** Every project MUST include:
-   - **README.md** — What was built, how to run (3 steps or fewer), stack. Be explicit so an AI judge can score it.
-   - **demo.html** (or keep index.html as the main demo) — A zero-dependency page that opens by double-click. No install required.
-4. **Bonus:** Add ONE visible, useful enhancement they didn’t ask for (e.g. dark mode, export, filter, keyboard shortcut). Mark it clearly (e.g. "Bonus: …") so it’s obvious.
-5. **Design:** Use a consistent look — one font pair, one accent color, clean layout. Avoid default Inter/Roboto/Arial. Simple dark theme works well: dark background (#0a0a0a), light text, one accent (e.g. #22c55e). Typography: one sans for UI, one mono for code/numbers.
+1. **Tech choice:** Prefer a single index.html with Tailwind from CDN and vanilla JS or a tiny framework when that fits. Use a full framework (React/Next, Vue) only when the request clearly needs routing or rich state.
+2. **Completeness:** No TODOs, no placeholders, no lorem ipsum. Use realistic data. Layout must work on small screens. Every button or link must do what it implies.
+3. **Required outputs:** Every artifact must include:
+   - README.md: what was built, how to run it (at most 3 steps), and what stack was used. Write so an automated reviewer can score it.
+   - A runnable entry (e.g. index.html or demo.html) that opens without install.
+4. **Extra value:** Add one visible, useful extra (e.g. theme toggle, export, filter, shortcut). Label it (e.g. "Extra: …") so reviewers see it.
+5. **Look and feel:** One coherent style: one font pair, one accent, clean layout. Avoid Inter, Roboto, Arial. A dark base (#0a0a0a) with one accent (e.g. #22c55e) and clear typography works well.
 `;
 
-const HACKATHON_EXTRA = `
-## HACKATHON JUDGING (AI AGENT JUDGES)
+const SCORING_CONTEXT = `
+## How this will be scored
 
-This submission will be scored by an AI agent on: **Functionality**, **Design**, **Speed**. Shortlist requires functionality > 5/10.
+Responses are scored by an automated agent on: **Functionality**, **Design**, **Speed**. To advance, functionality must score above 5/10.
 
-- **Functionality:** Everything works. No placeholders. All features implemented. README states clearly what was built and how to run (≤3 steps).
-- **Design:** Consistent, professional UI. No broken layouts. Clear hierarchy and readable text.
-- **Speed:** Deliver a complete, runnable project. Prefer index.html + CDN when it fits the ask — faster to build and to run.
+- **Functionality:** All requested behavior works. No placeholders. README clearly states what was built and how to run (≤3 steps).
+- **Design:** Consistent, readable UI. No broken layouts. Clear hierarchy.
+- **Speed:** Ship a complete, runnable artifact. Prefer index.html + CDN when it fits — faster to produce and to run.
 `;
 
 export interface JobContext {
@@ -48,41 +47,38 @@ export interface JobContext {
   validationErrors?: string[];
 }
 
-/**
- * Build the full system prompt for a job, with optional hackathon and validation-retry context.
- */
 export function getSystemPrompt(ctx: JobContext): string {
   const { job, isHackathon, promptAnalysis, validationErrors } = ctx;
-  const effectiveBudget =
+  const budget =
     job.jobType === "SWARM" && job.budgetPerAgent != null
       ? job.budgetPerAgent
       : job.budget;
 
-  let prompt = BASE_PROMPT;
+  let out = CORE_INSTRUCTIONS;
 
   if (isHackathon) {
-    prompt += HACKATHON_EXTRA;
+    out += SCORING_CONTEXT;
     if (promptAnalysis) {
-      prompt += `\n## DETECTED CONTEXT\n`;
-      prompt += `Project type: ${promptAnalysis.projectType}. Complexity: ${promptAnalysis.complexity}.`;
+      out += `\n## Request context\n`;
+      out += `Deliverable kind: ${promptAnalysis.projectType}. Scope: ${promptAnalysis.complexity}.`;
       if (promptAnalysis.features.length > 0) {
-        prompt += ` Suggested areas to cover: ${promptAnalysis.features.join(", ")}.`;
+        out += ` Consider covering: ${promptAnalysis.features.join(", ")}.`;
       }
-      prompt += "\n";
+      out += "\n";
     }
   }
 
   if (validationErrors && validationErrors.length > 0) {
-    prompt += `\n## FIX REQUIRED (previous attempt failed validation)\n`;
-    prompt += `Address these issues and submit again:\n${validationErrors.map((e) => `- ${e}`).join("\n")}\n`;
+    out += `\n## Corrections needed\n`;
+    out += `A previous attempt did not pass checks. Fix and resubmit:\n${validationErrors.map((e) => `- ${e}`).join("\n")}\n`;
   }
 
-  prompt += `\n## CURRENT JOB\n`;
-  prompt += `Budget: $${effectiveBudget.toFixed(2)} USD`;
+  out += `\n## This job\n`;
+  out += `Budget: $${budget.toFixed(2)} USD`;
   if (job.jobType === "SWARM" && job.budget != null && job.maxAgents != null) {
-    prompt += ` (your share of $${job.budget.toFixed(2)} across ${job.maxAgents} agents)`;
+    out += ` (share of $${job.budget.toFixed(2)} across ${job.maxAgents} agents)`;
   }
-  prompt += `. Adjust effort accordingly. Respond with text only for text jobs; use create_file and finalize_project only for build jobs.`;
+  out += `. Use text-only for text requests; use create_file and finalize_project only for artifact requests.`;
 
-  return prompt;
+  return out;
 }

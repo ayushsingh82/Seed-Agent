@@ -1,7 +1,6 @@
 /**
- * Validate a built project before submission.
- * Ensures entry point, README, minimum files, no empty files.
- * Can create a fallback index.html if no entry point exists.
+ * Submission checks: entry point, README, file count, non-empty files.
+ * Can inject a minimal index.html when no runnable entry exists.
  */
 
 import { readFileSync, existsSync, statSync, writeFileSync } from "fs";
@@ -44,7 +43,7 @@ function hasReadme(files: string[]): boolean {
 }
 
 /**
- * Create a minimal fallback index.html so the project can be opened.
+ * Ensure the project has a runnable entry by writing a minimal index.html when missing.
  */
 export function createFallbackEntryFile(projectDir: string): string {
   const filePath = join(projectDir, "index.html");
@@ -68,7 +67,7 @@ export function createFallbackEntryFile(projectDir: string): string {
 </body>
 </html>`;
   writeFileSync(filePath, content, "utf-8");
-  logger.info("[Validator] Created fallback index.html");
+  logger.info("[SubmissionCheck] Injected index.html (no entry found)");
   return "index.html";
 }
 
@@ -76,8 +75,7 @@ const MIN_FILES = 2;
 const MIN_README_LENGTH = 50;
 
 /**
- * Validate project directory and file list.
- * Returns errors/warnings and whether a fallback entry was applied.
+ * Run submission checks: entry, README, min files, no empty files.
  */
 export function validateProject(
   projectDir: string,
@@ -142,8 +140,7 @@ export function validateProject(
 }
 
 /**
- * Validate and optionally fix: if no entry point, create fallback index.html.
- * Returns updated validation result and list of files (including new one if added).
+ * Run checks and, if missing an entry point, inject index.html and return updated file list.
  */
 export function validateAndFix(
   projectDir: string,
