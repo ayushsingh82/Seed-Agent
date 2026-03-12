@@ -50,6 +50,7 @@ export function getConfig(): AgentConfig {
 
     // Model settings
     model: process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4",
+    fallbackModel: process.env.OPENROUTER_FALLBACK_MODEL || undefined,
     maxTokens: parseInt(process.env.MAX_TOKENS || "4096", 10),
     temperature: parseFloat(process.env.TEMPERATURE || "0.7"),
 
@@ -57,6 +58,7 @@ export function getConfig(): AgentConfig {
     minBudget: parseFloat(process.env.MIN_BUDGET || "0.50"),
     maxConcurrentJobs: parseInt(process.env.MAX_CONCURRENT_JOBS || "3", 10),
     pollInterval: parseInt(process.env.POLL_INTERVAL || "30", 10),
+    hackathonMinBudget: parseFloat(process.env.HACKATHON_MIN_BUDGET || "9000"),
 
     // Tools
     tools: {

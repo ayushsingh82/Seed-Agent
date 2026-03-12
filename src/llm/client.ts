@@ -116,6 +116,7 @@ export interface GenerateOptions {
 export class LLMClient {
   private openrouter: ReturnType<typeof createOpenRouter>;
   private model: string;
+  private fallbackModel: string | undefined;
   private maxTokens: number;
   private temperature: number;
 
@@ -131,6 +132,7 @@ export class LLMClient {
     });
 
     this.model = config.model;
+    this.fallbackModel = config.fallbackModel;
     this.maxTokens = config.maxTokens;
     this.temperature = config.temperature;
   }
@@ -321,6 +323,7 @@ export class LLMClient {
     const retryConfig = getRetryConfig();
 
     // Retry loop for recoverable errors
+    let tryFallbackModel = false;
     while (attempt <= retryConfig.maxRetries) {
       try {
         const result = await this.executeGeneration({
@@ -330,63 +333,79 @@ export class LLMClient {
           temperature,
           tools: hasTools ? tools : undefined,
         });
-        
         return result;
       } catch (error) {
         lastError = error;
-        
         if (isRetryableError(error) && attempt < retryConfig.maxRetries) {
           const delay = getRetryDelay(attempt, retryConfig);
           logger.warn(
             `LLM generation failed with retryable error (attempt ${attempt + 1}/${retryConfig.maxRetries + 1}), ` +
             `retrying in ${delay}ms: ${(error as Error).message?.substring(0, 100)}`
           );
-          
-          // Reset project builder before retry
           activeProjectBuilder = null;
-          
           await sleep(delay);
           attempt++;
           continue;
         }
-        
-        // Not retryable or exhausted retries - try fallback if tools were enabled
-        if (hasTools && retryConfig.fallbackNoTools && attempt >= retryConfig.maxRetries && isRetryableError(error)) {
+        if (
+          hasTools &&
+          retryConfig.fallbackNoTools &&
+          attempt >= retryConfig.maxRetries &&
+          isRetryableError(error)
+        ) {
           logger.warn(
             `Exhausted ${retryConfig.maxRetries} retries for tool calling, attempting fallback without tools`
           );
-          
           try {
-            // Reset and try without tools
             activeProjectBuilder = null;
             const fallbackResult = await this.executeGeneration({
-              prompt: prompt + "\n\n[Note: Please provide a text response only, as tool execution is temporarily unavailable.]",
+              prompt:
+                prompt +
+                "\n\n[Note: Please provide a text response only, as tool execution is temporarily unavailable.]",
               systemPrompt,
               maxTokens,
               temperature,
               tools: undefined,
             });
-            
             logger.info("Fallback generation without tools succeeded");
             return fallbackResult;
           } catch (fallbackError) {
             logger.error("Fallback generation also failed:", fallbackError);
-            // Throw the original error as it's more informative
-            throw lastError;
+            tryFallbackModel = true;
+            break;
           }
         }
-        
-        // Re-throw non-retryable errors immediately
-        throw error;
+        tryFallbackModel = true;
+        break;
       }
     }
 
-    // Should not reach here, but just in case
+    // Multi-model failover: try backup model once
+    if (this.fallbackModel && tryFallbackModel) {
+      logger.warn(`Primary model failed, trying fallback: ${this.fallbackModel}`);
+      activeProjectBuilder = null;
+      try {
+        const result = await this.executeGeneration({
+          prompt,
+          systemPrompt,
+          maxTokens,
+          temperature,
+          tools: hasTools ? tools : undefined,
+          model: this.fallbackModel,
+        });
+        logger.info("Fallback model succeeded");
+        return result;
+      } catch (fallbackError) {
+        logger.error("Fallback model also failed:", fallbackError);
+      }
+    }
+
     throw lastError;
   }
 
   /**
-   * Execute the actual LLM generation (separated for retry logic)
+   * Execute the actual LLM generation (separated for retry logic).
+   * Optional model override for multi-model failover.
    */
   private async executeGeneration(params: {
     prompt: string;
@@ -394,13 +413,15 @@ export class LLMClient {
     maxTokens: number;
     temperature: number;
     tools?: Record<string, CoreTool>;
+    model?: string;
   }): Promise<LLMResponse> {
-    const { prompt, systemPrompt, maxTokens, temperature, tools } = params;
+    const { prompt, systemPrompt, maxTokens, temperature, tools, model: modelOverride } = params;
+    const model = modelOverride ?? this.model;
     const hasTools = tools && Object.keys(tools).length > 0;
 
     try {
       const result = await generateText({
-        model: this.openrouter(this.model),
+        model: this.openrouter(model),
         prompt,
         system: systemPrompt,
         maxTokens,

@@ -4,8 +4,12 @@ import PusherClient from "pusher-js";
 import { SeedstrClient } from "../api/client.js";
 import { getLLMClient } from "../llm/client.js";
 import { getConfig, configStore } from "../config/index.js";
+import { getSystemPrompt } from "../config/systemPrompt.js";
 import { logger } from "../utils/logger.js";
-import { cleanupProject } from "../tools/projectBuilder.js";
+import { cleanupProject, zipDirectory } from "../tools/projectBuilder.js";
+import { isHackathonJob } from "../tools/hackathon/detector.js";
+import { analyzePrompt } from "../tools/hackathon/promptAnalyzer.js";
+import { validateProject, validateAndFix } from "../tools/hackathon/projectValidator.js";
 import type { Job, AgentEvent, TokenUsage, FileAttachment, WebSocketJobEvent } from "../types/index.js";
 
 // Approximate costs per 1M tokens for common models (input/output)
@@ -427,33 +431,66 @@ export class AgentRunner extends EventEmitter implements TypedEventEmitter {
     this.emitEvent({ type: "job_processing", job });
 
     try {
-      // Generate response using LLM
       const llm = getLLMClient();
       const config = getConfig();
+      const isHackathon = isHackathonJob(job, config);
+      const promptAnalysis = isHackathon ? analyzePrompt(job.prompt) : null;
 
-      const effectiveBudget = job.jobType === "SWARM" && job.budgetPerAgent
-        ? job.budgetPerAgent
-        : job.budget;
+      const systemPrompt = getSystemPrompt({
+        job,
+        isHackathon,
+        promptAnalysis,
+      });
 
-      const result = await llm.generate({
+      let result = await llm.generate({
         prompt: job.prompt,
-        systemPrompt: `You are an AI agent participating in the Seedstr marketplace. Your task is to provide the best possible response to job requests.
-
-Guidelines:
-- Be helpful, accurate, and thorough
-- Use tools when needed to get current information
-- Provide well-structured, clear responses
-- Be professional and concise
-- If you use web search, cite your sources
-
-Responding to jobs:
-- Most jobs are asking for TEXT responses — writing, answers, advice, ideas, analysis, tweets, emails, etc. For these, just respond directly with well-written text. Do NOT create files for text-based requests.
-- Only use create_file and finalize_project when the job is genuinely asking for a deliverable code project (a website, app, script, tool, etc.) that the requester would need to download and run/open.
-- Use your judgment to determine what the requester actually wants. "Write me a tweet" = text response. "Build me a landing page" = file project.
-
-Job Budget: $${effectiveBudget.toFixed(2)} USD${job.jobType === "SWARM" ? ` (your share of $${job.budget.toFixed(2)} total across ${job.maxAgents} agents)` : ""}`,
+        systemPrompt,
+        temperature: isHackathon ? 0.5 : undefined,
         tools: true,
       });
+
+      // Hackathon/build: validate project and retry once if invalid
+      if (
+        result.projectBuild &&
+        result.projectBuild.success &&
+        isHackathon
+      ) {
+        const validation = validateProject(
+          result.projectBuild.projectDir,
+          result.projectBuild.files
+        );
+        if (!validation.valid && validation.errors.length > 0) {
+          logger.warn(
+            `[Hackathon] Validation failed, retrying once: ${validation.errors.join("; ")}`
+          );
+          const retryPrompt = getSystemPrompt({
+            job,
+            isHackathon: true,
+            promptAnalysis,
+            validationErrors: validation.errors,
+          });
+          const retryResult = await llm.generate({
+            prompt: job.prompt,
+            systemPrompt: retryPrompt,
+            temperature: 0.5,
+            tools: true,
+          });
+          if (retryResult.projectBuild?.success) {
+            result = retryResult;
+          }
+        }
+        // Apply fallback entry if needed and re-zip before submit
+        const projectBuild = result.projectBuild;
+        if (projectBuild) {
+          const { result: finalValidation } = validateAndFix(
+            projectBuild.projectDir,
+            projectBuild.files
+          );
+          if (finalValidation.fallbackApplied) {
+            await zipDirectory(projectBuild.projectDir, projectBuild.zipPath);
+          }
+        }
+      }
 
       // Track token usage
       let usage: TokenUsage | undefined;

@@ -6,6 +6,24 @@ import archiver from "archiver";
 import { createWriteStream } from "fs";
 import { logger } from "../utils/logger.js";
 
+/**
+ * Zip an existing directory to a zip file (e.g. after adding fallback index.html).
+ */
+export function zipDirectory(projectDir: string, zipPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const output = createWriteStream(zipPath);
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    output.on("close", () => {
+      logger.debug(`Re-zipped directory to ${zipPath}`);
+      resolve();
+    });
+    archive.on("error", reject);
+    archive.pipe(output);
+    archive.directory(projectDir, false);
+    archive.finalize();
+  });
+}
+
 export interface ProjectFile {
   path: string; // Relative path within the project (e.g., "src/index.html")
   content: string; // File content

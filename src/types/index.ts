@@ -174,6 +174,7 @@ export interface AgentConfig {
 
   // Model settings
   model: string;
+  fallbackModel?: string; // Used when primary model fails (multi-model failover)
   maxTokens: number;
   temperature: number;
 
@@ -181,6 +182,8 @@ export interface AgentConfig {
   minBudget: number;
   maxConcurrentJobs: number;
   pollInterval: number;
+  // Hackathon: treat high-budget jobs with full pipeline (validation, retry, design)
+  hackathonMinBudget: number;
 
   // Tools
   tools: {
