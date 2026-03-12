@@ -6,6 +6,7 @@ import { registerCommand } from "./commands/register.js";
 import { verifyCommand } from "./commands/verify.js";
 import { profileCommand } from "./commands/profile.js";
 import { statusCommand } from "./commands/status.js";
+import { idCommand } from "./commands/id.js";
 import { runCommand } from "./commands/run.js";
 import { simulateCommand } from "./commands/simulate.js";
 
@@ -56,6 +57,12 @@ program
   .command("status")
   .description("Check agent registration and verification status")
   .action(statusCommand);
+
+// ID command (for hackathon platform)
+program
+  .command("id")
+  .description("Print Agent ID for hackathon platform submission")
+  .action(idCommand);
 
 // Run command
 program

@@ -17,6 +17,8 @@ interface RegisterOptions {
 }
 
 export async function registerCommand(options: RegisterOptions): Promise<void> {
+  const config = getConfig();
+
   // Check if already registered
   if (isRegistered()) {
     const stored = getStoredAgent();
@@ -40,11 +42,13 @@ export async function registerCommand(options: RegisterOptions): Promise<void> {
 
   console.log(chalk.cyan("\n📝 Agent Registration\n"));
 
-  // Get wallet type (ETH or SOL)
-  let walletType: WalletType;
-  if (options.walletType && (options.walletType === "ETH" || options.walletType === "SOL")) {
-    walletType = options.walletType;
-  } else {
+  // Wallet type: from options, then env/config
+  let walletType: WalletType | undefined =
+    options.walletType === "ETH" || options.walletType === "SOL"
+      ? options.walletType
+      : (config.walletType as WalletType) || undefined;
+
+  if (!walletType) {
     const response = await prompts({
       type: "select",
       name: "walletType",
@@ -65,29 +69,25 @@ export async function registerCommand(options: RegisterOptions): Promise<void> {
 
   console.log(chalk.gray(`  Wallet type: ${walletType}\n`));
 
-  // Get wallet address
-  let walletAddress = options.wallet;
-  if (!walletAddress) {
-    const config = getConfig();
-    walletAddress = config.walletAddress;
+  // Wallet address: from options, then env/config
+  let walletAddress = options.wallet || config.walletAddress;
 
-    if (!walletAddress) {
-      const addressLabel = walletType === "ETH" ? "Ethereum (0x...)" : "Solana";
-      const response = await prompts({
-        type: "text",
-        name: "wallet",
-        message: `Enter your ${addressLabel} wallet address:`,
-        validate: (value: string) => {
-          if (walletType === "ETH") {
-            return /^0x[0-9a-fA-F]{40}$/.test(value) ? true : "Please enter a valid Ethereum address (0x followed by 40 hex characters)";
-          }
-          return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value) ? true : "Please enter a valid Solana address (32-44 base58 characters)";
-        },
-      });
-      walletAddress = response.wallet;
-    } else {
-      console.log(chalk.gray(`Using wallet from config: ${walletAddress}\n`));
-    }
+  if (!walletAddress) {
+    const addressLabel = walletType === "ETH" ? "Ethereum (0x...)" : "Solana";
+    const response = await prompts({
+      type: "text",
+      name: "wallet",
+      message: `Enter your ${addressLabel} wallet address:`,
+      validate: (value: string) => {
+        if (walletType === "ETH") {
+          return /^0x[0-9a-fA-F]{40}$/.test(value) ? true : "Please enter a valid Ethereum address (0x followed by 40 hex characters)";
+        }
+        return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value) ? true : "Please enter a valid Solana address (32-44 base58 characters)";
+      },
+    });
+    walletAddress = response.wallet;
+  } else {
+    console.log(chalk.gray(`  Using wallet from .env/config\n`));
   }
 
   if (!walletAddress) {
@@ -95,16 +95,8 @@ export async function registerCommand(options: RegisterOptions): Promise<void> {
     process.exit(1);
   }
 
-  // Get optional owner URL
-  let ownerUrl = options.url;
-  if (!ownerUrl) {
-    const response = await prompts({
-      type: "text",
-      name: "url",
-      message: "Enter your agent's homepage URL (optional):",
-    });
-    ownerUrl = response.url || undefined;
-  }
+  // Optional owner URL (skip prompt when using env-based registration)
+  const ownerUrl = options.url || undefined;
 
   // Register with API
   const spinner = ora("Registering agent...").start();
