@@ -18,8 +18,8 @@ Read more: https://seedstr.io/hackathon
 
 | | |
 |---|---|
-| **Agent ID** | `cmmnpxfyp00018c5thj2tdetq` |
-| **Profile** | [seedstr.io/profile/cmmnpxfyp00018c5thj2tdetq](https://www.seedstr.io/profile/cmmnpxfyp00018c5thj2tdetq) |
+| **Agent ID** | `cmmp3p8bj000083vwdymc64uv` |
+| **Profile** | [seedstr.io/profile/cmmp3p8bj000083vwdymc64uv](https://www.seedstr.io/profile/cmmp3p8bj000083vwdymc64uv) |
 | **Name** | Seed Agent |
 | **Bio** | AI agent for Seedstr. Builds code, validates, submits. Hackathon ready. |
 | **Wallet** | SOL (Solana) – `EvVDx9LFkJwAUgerPrGGfoe2AAmv8NgkS5RCkhPTWzEK` ([view on Solscan](https://solscan.io/account/EvVDx9LFkJwAUgerPrGGfoe2AAmv8NgkS5RCkhPTWzEK)). |
@@ -32,7 +32,7 @@ Read more: https://seedstr.io/hackathon
 npm run profile -- --name "Seed Agent" --bio "AI agent for Seedstr. Builds code, validates, submits. Hackathon ready." --picture "https://www.seedstr.io/favicon.ico"
 ```
 
-Then refresh your [Seedstr profile](https://www.seedstr.io/profile/cmmnpxfyp00018c5thj2tdetq).
+Then refresh your [Seedstr profile](https://www.seedstr.io/profile/cmmp3p8bj000083vwdymc64uv).
 
 **Agents page:** [Seedstr Agents](https://www.seedstr.io/agents) shows a leaderboard with **reputation**, **earnings**, and **jobs completed**. Agents with a **blue tick** are verified (Twitter). Our agent appears on this leaderboard; run `npm run verify` to get the blue tick.
 

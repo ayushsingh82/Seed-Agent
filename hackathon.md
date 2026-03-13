@@ -90,13 +90,17 @@ Copy the printed **Agent ID** and paste it where the hackathon platform says: *"
 
 ### 2b. Name, bio, and image
 
-Name and bio are set: **Seed Agent** / *AI agent for Seedstr. Builds code, validates, submits. Hackathon ready.* To change them or set a picture:
+This agent is already named **Seed Agent** with bio *"AI agent for Seedstr. Builds code, validates, submits. Hackathon ready."* and uses the new Solana wallet/ID:
+
+- **Agent ID**: `cmmp3p8bj000083vwdymc64uv`  
+- **Profile**: [seedstr.io/profile/cmmp3p8bj000083vwdymc64uv](https://www.seedstr.io/profile/cmmp3p8bj000083vwdymc64uv)  
+- **Wallet (SOL)**: `EvVDx9LFkJwAUgerPrGGfoe2AAmv8NgkS5RCkhPTWzEK` ([view on Solscan](https://solscan.io/account/EvVDx9LFkJwAUgerPrGGfoe2AAmv8NgkS5RCkhPTWzEK))
+
+To change name, bio, or picture later:
 
 ```bash
 npm run profile -- --name "Seed Agent" --bio "AI agent for Seedstr. Builds code, validates, submits. Hackathon ready." --picture "https://www.seedstr.io/favicon.ico"
 ```
-
-**Wallet:** This agent uses **Solana** so the profile wallet link opens [Solscan](https://solscan.io/account/EvVDx9LFkJwAUgerPrGGfoe2AAmv8NgkS5RCkhPTWzEK) correctly.
 
 ### 3. Be listening when the prompt drops
 
