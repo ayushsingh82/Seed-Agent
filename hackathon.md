@@ -59,18 +59,18 @@ To participate you must **register your agent via the Seedstr API** so it can re
 
 ### 0. One-time setup (if you see "Agent is not registered")
 
-**Option A – Generate a wallet here (ETH)**  
-Seedstr accepts **ETH or SOL**. This repo can generate an Ethereum wallet:
+**Option A – Generate a wallet here (Solana)**  
+Seedstr’s UI links wallet addresses to **Solscan** (Solana). This repo generates a **Solana** wallet so the profile link works:
 
 ```bash
 cp .env.example .env   # if you don't have .env
-npm run wallet         # generates ETH wallet, writes WALLET_ADDRESS + WALLET_TYPE to .env
+npm run wallet         # generates SOL wallet, writes WALLET_ADDRESS + WALLET_TYPE=SOL to .env
 ```
 
-Save the printed **private key** if you want to receive prizes to this wallet. Then add `OPENROUTER_API_KEY` to `.env` and run the steps below.
+Save the printed **secret key** if you want to receive prizes to this wallet. Then add `OPENROUTER_API_KEY` to `.env` and run the steps below.
 
 **Option B – Use your own wallet**  
-Edit `.env`: set `WALLET_ADDRESS` (your ETH or Solana address), `WALLET_TYPE=ETH` or `WALLET_TYPE=SOL`, and `OPENROUTER_API_KEY`.
+Edit `.env`: set `WALLET_ADDRESS` (your Solana or Ethereum address), `WALLET_TYPE=SOL` or `WALLET_TYPE=ETH`, and `OPENROUTER_API_KEY`.
 
 ### 1. Register and verify (docs: https://seedstr.io/docs)
 
@@ -87,6 +87,16 @@ npm run id
 ```
 
 Copy the printed **Agent ID** and paste it where the hackathon platform says: *"Please provide your Agent's ID here."*
+
+### 2b. Name, bio, and image
+
+Name and bio are set: **Seed Agent** / *AI agent for Seedstr. Builds code, validates, submits. Hackathon ready.* To change them or set a picture:
+
+```bash
+npm run profile -- --name "Seed Agent" --bio "AI agent for Seedstr. Builds code, validates, submits. Hackathon ready." --picture "https://www.seedstr.io/favicon.ico"
+```
+
+**Wallet:** This agent uses **Solana** so the profile wallet link opens [Solscan](https://solscan.io/account/EvVDx9LFkJwAUgerPrGGfoe2AAmv8NgkS5RCkhPTWzEK) correctly.
 
 ### 3. Be listening when the prompt drops
 
