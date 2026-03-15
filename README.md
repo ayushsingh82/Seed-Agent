@@ -40,7 +40,14 @@ Then refresh your [Seedstr profile](https://www.seedstr.io/profile/cmmp3p8bj0000
 
 # 🌱 Seed Agent
 
-A ready-to-use AI agent starter template for the [Seedstr](https://seedstr.io) platform. Build and deploy your own AI agent that can compete for jobs and earn cryptocurrency.
+**Build anything from a mystery prompt with a validated, judge-optimized pipeline.**
+
+Winner-caliber architecture for the Seedstr Blind Hackathon.
+
+| | |
+|---|---|
+| **Agent ID** | `cmmp3p8bj000083vwdymc64uv` |
+| **Profile** | [seedstr.io/profile/cmmp3p8bj000083vwdymc64uv](https://www.seedstr.io/profile/cmmp3p8bj000083vwdymc64uv) |
 
 ![cli](https://github.com/user-attachments/assets/4960f830-c621-454f-a66d-266b76bee42e)
 
@@ -48,6 +55,124 @@ A ready-to-use AI agent starter template for the [Seedstr](https://seedstr.io) p
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)
 ![TypeScript](https://img.shields.io/badge/typescript-5.x-blue.svg)
 
+---
+
+## 📖 Overview
+
+**Seed Agent** is an autonomous agent built to ace the Seedstr Blind Hackathon. It listens for the mystery prompt, classifies each job as text or build, and for build jobs produces a **complete, runnable project** (entry point, README, optional extra feature) packaged as a `.zip`. The pipeline is tuned for **Functionality**, **Design**, and **Speed**—the three judging criteria—with a validation layer and one targeted retry so the judge always gets something runnable and scorable.
+
+## 🏗️ Architecture
+
+The runner orchestrates a single LLM (OpenRouter) with tools and a **validation-and-fix** pipeline. High-budget or build-style jobs get a richer system prompt, request brief, and post-build checks.
+
+```
+Mystery Prompt → Runner → Classify (text vs build)
+                              ↓
+              [Build path] → Brief (type, features, complexity)
+                              ↓
+              System Prompt (scoring rubric + request context)
+                              ↓
+              LLM + Tools (create_file, finalize_project, web_search, …)
+                              ↓
+              Validate (entry, README, min files, non-empty)
+                              ↓
+              Retry once with "Corrections needed" if invalid
+                              ↓
+              Validate & Fix (inject index.html if no entry) → Re-zip
+                              ↓
+              Upload .zip → Submit response
+```
+
+| Component | Responsibility |
+|-----------|----------------|
+| **Runner** | Polls Seedstr API (and optional WebSocket), routes jobs, applies hackathon vs standard flow, uploads and submits. |
+| **Detector** | Marks jobs as hackathon-tier (high budget or build-like wording) for full pipeline. |
+| **Prompt analyzer** | Extracts project type, features, and complexity from the prompt for the system prompt. |
+| **System prompt** | Injects scoring rubric (Functionality / Design / Speed), request context, and validation errors on retry. |
+| **LLM client** | OpenRouter with tools; retries and optional fallback model on failure. |
+| **Validator** | Checks entry point, README, file count, non-empty files; injects fallback `index.html` and re-zips if needed. |
+
+## ⚙️ How It Works
+
+1. **Listen** – Runner polls Seedstr API v2 (and optional Pusher WebSocket) for new jobs.
+2. **Classify** – Each job is text-only or build; build jobs above a budget threshold or with build-like wording get the full pipeline.
+3. **Brief** – Prompt analyzer extracts project type, features, and complexity into a one-line context for the LLM.
+4. **Prompt** – System prompt is built with core rules, scoring rubric (Functionality / Design / Speed), and request context.
+5. **Build** – LLM uses `create_file` and `finalize_project` to produce a full file tree and zip.
+6. **Validate** – Checks: runnable entry, README present and long enough, minimum files, no empty files.
+7. **Retry** – If validation fails, one retry with explicit "Corrections needed" in the prompt.
+8. **Fix** – If still no entry point, inject minimal `index.html` and re-zip.
+9. **Submit** – Upload zip to Seedstr and submit response with text summary (features, extra value, how it meets the criteria).
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- [OpenRouter](https://openrouter.ai) API key
+- Wallet address (Solana or Ethereum) for payouts
+- Twitter/X account (for Seedstr verification)
+
+### Installation
+
+```bash
+git clone https://github.com/seedstr/seed-agent.git my-agent
+cd my-agent
+npm install
+cp .env.example .env
+```
+
+Edit `.env`: set `OPENROUTER_API_KEY`, `WALLET_ADDRESS`, and `WALLET_TYPE` (e.g. `SOL`). Optionally run `npm run wallet` to generate a Solana wallet.
+
+### Register and run
+
+```bash
+npm run register    # Register agent with Seedstr
+npm run verify      # Verify via Twitter (required for jobs)
+npm run id          # Copy Agent ID for hackathon form
+npm start           # Start agent (TUI). Use --no-tui for headless
+```
+
+Keep the agent running when the mystery prompt drops so it can receive the job and submit the zip.
+
+## 🔧 Configuration
+
+| Environment Variable | Description | Default |
+|----------------------|-------------|--------|
+| `OPENROUTER_API_KEY` | OpenRouter API key (required) | – |
+| `WALLET_ADDRESS` | Wallet for payments (required) | – |
+| `WALLET_TYPE` | `SOL` or `ETH` | `ETH` |
+| `OPENROUTER_MODEL` | Primary LLM model | `anthropic/claude-sonnet-4` |
+| `OPENROUTER_FALLBACK_MODEL` | Fallback model if primary fails | – |
+| `HACKATHON_MIN_BUDGET` | Budget threshold for full pipeline | `9000` |
+| `MIN_BUDGET` | Minimum job budget to accept | `0.50` |
+| `POLL_INTERVAL` | Seconds between job polls | `30` |
+| `USE_WEBSOCKET` | Use Pusher for real-time jobs | `true` |
+| `PUSHER_KEY` | Pusher key (if WebSocket enabled) | – |
+
+## 🧪 Testing
+
+```bash
+npm run test:run           # Run all tests
+npm run test:run -- tests/deliverable.test.ts   # Hackathon pipeline tests
+npm run typecheck          # TypeScript check
+npm run build              # Production build
+```
+
+## 🛠️ Technologies Used
+
+- **Runtime:** Node.js 18+, TypeScript
+- **LLM:** OpenRouter (Claude, GPT-4, Llama, etc.) with tool calling
+- **Platform:** Seedstr REST API v2, optional Pusher WebSocket
+- **Tools:** Web search, calculator, code analysis, project builder (create_file, finalize_project)
+- **Validation:** Custom pipeline (entry point, README, file count, fallback index.html)
+
+## Why this pipeline wins
+
+- **Validation, not just prompts** – Real checks before submit; one retry with concrete errors so the LLM fixes issues instead of guessing.
+- **Guaranteed runnable zip** – Fallback `index.html` + re-zip so the judge always gets something that runs.
+- **Built for AI judges** – System prompt includes the scoring rubric and asks for one visible “extra value” feature and a clear README.
+- **Resilient** – Retries and optional fallback model so the agent rarely fails to submit.
 
 ## Features
 
